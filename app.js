@@ -17,7 +17,7 @@
 // ./sw.js — Clip loads as a plain script (no <script type="module">), so
 // this lives here instead of a separate version.js the way the ES-module
 // apps do it.
-const APP_BUILD = '2026.09.07-review1';
+const APP_BUILD = '2026.09.08-review2';
 const CONFIG = {
   appName: 'Clip',
   fileBase: 'clip',
@@ -166,6 +166,19 @@ function saveState() {
   return true;
 }
 
+// Capture immediately before a synchronous mutation. A failed durable write
+// must not change the visible state or publish deletion/activity side effects.
+function beginStateChange() {
+  const previous = JSON.stringify(state);
+  const previousDeletes = pendingJournalDeletes.length;
+  return () => {
+    if (saveState()) return true;
+    state = JSON.parse(previous);
+    pendingJournalDeletes.length = previousDeletes;
+    return false;
+  };
+}
+
 /**
  * The expiry-clock helper (plan 4-1). Call this — and only this — for every
  * action listed in the "resets the clock" table: create, copy (card tap or
@@ -180,6 +193,7 @@ function touch(item) {
   const t = nowIso();
   item.lastTouchedAt = t;
   item.updatedAt = t;
+  item.archivedAt = null;
 }
 
 function makeId() {
@@ -298,12 +312,13 @@ function addItem(kind, rawText, opts = {}) {
 /** Card tap (Clips) or menu Copy (either kind). Touches the clock either way. */
 function copyItem(item) {
   return writeClipboard(item.text).then(() => {
+    const commit = beginStateChange();
     if (item.kind === 'clip') {
       item.usedAt = nowIso();
       item.useCount = (item.useCount || 0) + 1;
     }
     touch(item);
-    saveState();
+    if (!commit()) return true; // Clipboard copy itself still succeeded.
     recordClipActivity(item, 'copied');
     queueJournalItem(item);
     return true;
@@ -338,22 +353,26 @@ function togglePin(item) {
     toast('Pin limit reached (' + CONFIG.maxPinned + '). Unpin one first.', 'warn');
     return false;
   }
+  const commit = beginStateChange();
   item.pinned = !item.pinned;
+  item.archivedAt = null;
   const pinAction = item.pinned ? 'pinned' : 'unpinned';
   if (!item.pinned) touch(item);
   trimEmergency();
-  saveState();
+  if (!commit()) return false;
   recordClipActivity(item, pinAction);
   queueJournalItem(item);
   return true;
 }
 
 function deleteItem(item) {
+  const commit = beginStateChange();
   const deletedAt = nowIso();
   state.items = state.items.filter(it => it.id !== item.id);
   state.deleted = (state.deleted || []).concat([{ id: item.id, at: deletedAt }]);
-  saveState();
+  if (!commit()) return false;
   queueJournalItem(item, { deleted: true, updatedAt: deletedAt });
+  return true;
 }
 
 /* ── 5. retention (plan 4장) ──────────────────────────────────────────── */
@@ -401,8 +420,9 @@ async function archiveItems(items) {
   const token = getSyncToken();
   if (!token) return false;
 
+  const archived = items.map(item => ({ ...item }));
   const byMonth = {};
-  items.forEach(it => {
+  archived.forEach(it => {
     const m = it.createdAt.slice(0, 7);
     (byMonth[m] = byMonth[m] || []).push(it);
   });
@@ -429,9 +449,12 @@ async function archiveItems(items) {
     return false;
   }
 
-  items.forEach(it => { it.archivedAt = stamp; });
-  saveState();
-  return true;
+  const commit = beginStateChange();
+  archived.forEach(saved => {
+    const current = state.items.find(item => item.id === saved.id);
+    if (current && current.updatedAt === saved.updatedAt && current.pinned === saved.pinned) current.archivedAt = stamp;
+  });
+  return commit();
 }
 
 /**
@@ -447,11 +470,12 @@ async function performCleanup(opts = {}) {
   // between "uploaded" and "deleted locally" — safe to delete, no re-upload.
   const leftover = state.items.filter(it => it.archivedAt);
   if (leftover.length) {
+    const commit = beginStateChange();
     const ids = new Set(leftover.map(it => it.id));
     const now = nowIso();
     state.deleted = (state.deleted || []).concat(leftover.map(it => ({ id: it.id, at: now })));
     state.items = state.items.filter(it => !ids.has(it.id));
-    saveState();
+    if (!commit()) return;
     leftover.forEach(item => queueJournalItem(item, { deleted: true, updatedAt: now }));
   }
 
@@ -461,7 +485,7 @@ async function performCleanup(opts = {}) {
     return;
   }
 
-  const expired = state.items.filter(it => isExpired(it, retentionDays));
+  let expired = state.items.filter(it => isExpired(it, retentionDays));
   if (expired.length === 0) {
     recordCleanupTime();
     if (!silent) toast('Nothing to clear.', 'ok');
@@ -475,12 +499,15 @@ async function performCleanup(opts = {}) {
       if (!silent) toast('Could not reach the archive — items were kept.', 'warn', 5000);
       return;
     }
+    expired = state.items.filter(it => it.archivedAt && isExpired(it, state.settings.retentionDays));
+    if (!expired.length) { render(); return; }
+    const commit = beginStateChange();
     const ids = new Set(expired.map(it => it.id));
     const now = nowIso();
     state.deleted = (state.deleted || []).concat(expired.map(it => ({ id: it.id, at: now })));
     state.items = state.items.filter(it => !ids.has(it.id));
+    if (!commit()) return;
     recordCleanupTime();
-    saveState();
     expired.forEach(item => queueJournalItem(item, { deleted: true, updatedAt: now }));
     toast(expired.length + ' item' + (expired.length === 1 ? '' : 's') + ' archived and cleared.', null, 3200);
     render();
@@ -496,12 +523,13 @@ async function performCleanup(opts = {}) {
   );
   if (!ok) return;
   snapshot();
+  const commit = beginStateChange();
   const ids = new Set(expired.map(it => it.id));
   const now = nowIso();
   state.deleted = (state.deleted || []).concat(expired.map(it => ({ id: it.id, at: now })));
   state.items = state.items.filter(it => !ids.has(it.id));
+  if (!commit()) return;
   recordCleanupTime();
-  saveState();
   expired.forEach(item => queueJournalItem(item, { deleted: true, updatedAt: now }));
   render();
   toastUndo(expired.length + ' item(s) cleared.');
@@ -567,10 +595,11 @@ async function pullFromOtherMode() {
   );
   if (!ok) return;
   snapshot();
+  const commit = beginStateChange();
   fresh.forEach(it => { it.id = makeId(); });
   state.items = fresh.concat(state.items);
   const removed = trimEmergency();
-  saveState();
+  if (!commit()) return;
   closeSheet();
   render();
   toastUndo('Imported ' + fresh.length + ' item(s).' + (removed > 0 ? ' (' + removed + ' old ones cleared)' : ''));
@@ -843,11 +872,12 @@ function snapshot() { undoSnapshot = JSON.stringify({ items: state.items, delete
 function restoreSnapshot() {
   if (!undoSnapshot) return;
   try {
+    const commit = beginStateChange();
     const snap = JSON.parse(undoSnapshot);
     state.items = Array.isArray(snap.items) ? snap.items : [];
     state.deleted = Array.isArray(snap.deleted) ? snap.deleted : state.deleted;
     if (snap.settings) state.settings = snap.settings;
-    saveState();
+    if (!commit()) return;
     const restoredAt = nowIso();
     state.items.forEach(item => queueJournalItem(item, { updatedAt: restoredAt }));
     refreshSettingsUI();
@@ -1003,7 +1033,7 @@ async function runMenuAction(key, item) {
     const ok = await confirmAsk('Delete this item?', item.label || item.text.slice(0, 80), 'Delete');
     if (!ok) return;
     snapshot();
-    deleteItem(item);
+    if (!deleteItem(item)) { render(); return; }
     render();
     toastUndo('Deleted.');
   }
@@ -1154,6 +1184,7 @@ function importJson(file) {
     if (!ok) return;
 
     snapshot();
+    const commit = beginStateChange();
     const restoreTime = nowIso();
     // Plan 4-4-①: an old backup's items are all past their retention period
     // already — reset the clock to the restore moment so they don't all
@@ -1167,9 +1198,9 @@ function importJson(file) {
     state.items = next.items;
     state.deleted = (state.deleted || []).concat(next.deleted || []).concat(removalTombs);
     state.settings = next.settings;
-    if (Array.isArray(data.journalActivity)) replaceClipActivityLedger(data.journalActivity);
     trimEmergency();
-    saveState();
+    if (!commit()) return;
+    if (Array.isArray(data.journalActivity)) replaceClipActivityLedger(data.journalActivity);
     state.items.forEach(item => queueJournalItem(item));
     removalTombs.forEach(tomb => {
       const original = previousItems.get(tomb.id);
@@ -1191,11 +1222,12 @@ async function wipeAll() {
   const ok2 = await confirmAsk('Are you sure?', desc, 'Delete all');
   if (!ok2) return;
   snapshot();
+  const commit = beginStateChange();
   const now = nowIso();
   const removed = state.items.slice();
   state.deleted = (state.deleted || []).concat(state.items.map(it => ({ id: it.id, at: now })));
   state.items = [];
-  saveState();
+  if (!commit()) return;
   removed.forEach(item => queueJournalItem(item, { deleted: true, updatedAt: now }));
   render();
   toastUndo('Deleted everything.');
@@ -1332,9 +1364,10 @@ async function pullAndMerge() {
         try { remoteFiles.push(JSON.parse(res.content)); } catch (e) { /* skip corrupt file */ }
       }
     }
+    const commit = beginStateChange();
     mergeRemote(remoteFiles);
     trimEmergency();
-    saveState();
+    if (!commit()) throw new Error('Could not save synced items on this device.');
     render();
     markSyncedNow();
   } catch (e) {
@@ -1865,23 +1898,29 @@ function bind() {
   el['btn-settings'].addEventListener('click', () => { refreshSettingsUI(); openSheet(el['sheet-settings']); });
 
   document.querySelectorAll('.seg-btn[data-step]').forEach(b => b.addEventListener('click', () => {
+    const commit = beginStateChange();
     state.settings.fontStep = Number(b.dataset.step);
-    saveState(); applyFontStep();
+    if (!commit()) { refreshSettingsUI(); return; }
+    applyFontStep();
   }));
   el['btn-fontstep-reset'].addEventListener('click', () => {
+    const commit = beginStateChange();
     state.settings.fontStep = CONFIG.defaultFontStep;
-    saveState(); applyFontStep();
+    if (!commit()) { refreshSettingsUI(); return; }
+    applyFontStep();
     toast('Reset to default size.', 'ok');
   });
 
   document.querySelectorAll('.seg-btn[data-retention]').forEach(b => b.addEventListener('click', () => {
+    const commit = beginStateChange();
     state.settings.retentionDays = Number(b.dataset.retention);
-    saveState(); applyRetentionUI(); render();
+    if (!commit()) { refreshSettingsUI(); return; }
+    applyRetentionUI(); render();
     toast(state.settings.retentionDays === 0 ? 'Auto-clearing turned off.' : 'Retention set to ' + state.settings.retentionDays + ' days.', 'ok');
   }));
   el['btn-clear-expired'].addEventListener('click', () => performCleanup({ silent: false }).then(refreshCleanupLine));
 
-  el['set-merge'].addEventListener('change', () => { state.settings.mergeDuplicates = el['set-merge'].checked; saveState(); });
+  el['set-merge'].addEventListener('change', () => { const commit = beginStateChange(); state.settings.mergeDuplicates = el['set-merge'].checked; if (!commit()) refreshSettingsUI(); });
 
   const copyUrl = () => writeClipboard(pasteShortcutUrl())
     .then(() => toast('Address copied.', 'ok'))

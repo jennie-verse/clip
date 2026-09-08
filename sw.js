@@ -7,7 +7,7 @@
      already installed this app.
    ========================================================================== */
 
-const CACHE = 'clip-v1-2026.09.07-review1';
+const CACHE = 'clip-v1-2026.09.08-review2';
 
 /* Caches with this prefix are never deleted here — they're the mirror
    used to carry items between the Home Screen app and Safari (see

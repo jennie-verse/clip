@@ -218,3 +218,49 @@ test('backup restore replaces items, resets retention clocks, and records remova
   assert.equal(context.restoredResult.tomb.at, context.restoredResult.item.updatedAt);
   assert.equal(JSON.parse(values.get('clip.v1')).items[0].id, 'restored');
 });
+
+function failedStorage() {
+  const h = loadApp(); const events = [];
+  h.context.toast = () => ({ remove() {} });
+  h.context.render = () => {}; h.context.refreshSettingsUI = () => {};
+  h.context.queueJournalItem = item => events.push(item);
+  h.context.recordClipActivity = item => events.push(item);
+  vm.runInContext("state.items = [normalizeItem({id:'keep',kind:'clip',text:'Keep me',createdAt:'2020-01-01T00:00:00Z',lastTouchedAt:'2020-01-01T00:00:00Z'})]; state.settings.retentionDays=7;", h.context);
+  h.context.localStorage.setItem = () => { throw new Error('Quota exceeded'); };
+  return { ...h, events, run: code => vm.runInContext(code, h.context) };
+}
+test('pin and deletion failures retain visible items without publishing', () => {
+  const h = failedStorage();
+  assert.equal(h.run('togglePin(state.items[0])'), false);
+  assert.equal(h.run('state.items[0].pinned'), false);
+  assert.equal(h.run('deleteItem(state.items[0])'), false);
+  assert.equal(h.run('state.items[0].text'), 'Keep me');
+  assert.equal(h.run('state.deleted.length'), 0);
+  assert.equal(h.events.length, 0);
+});
+test('failed cleanup, restore and wipe preserve items and do not report success', async () => {
+  const h = failedStorage(); let success = 0;
+  h.context.confirmAsk = async () => true;
+  h.context.toastUndo = () => success++;
+  await h.run('performCleanup()');
+  await h.run('wipeAll()');
+  h.run(`importJson({text:JSON.stringify({version:CONFIG.schema,items:[{id:'replacement',text:'new',kind:'clip'}]})})`);
+  await h.getLastReader().done;
+  assert.equal(h.run('state.items[0].id'), 'keep');
+  assert.equal(h.run('state.deleted.length'), 0);
+  assert.equal(h.events.length, 0);
+  assert.equal(success, 0);
+});
+test('an item edited during archive upload is retained by cleanup', async () => {
+  const h = loadApp(); let release; const upload = new Promise(resolve => { release = resolve; });
+  h.context.getSyncToken = () => 'test'; h.context.isSyncEnabled = () => true;
+  h.context.syncConfig = () => ({}); h.context.render = () => {};
+  h.context.window.SharedSync = { readFile: async () => null, writeFile: () => upload };
+  vm.runInContext("state.items=[normalizeItem({id:'keep',kind:'clip',text:'old',createdAt:'2020-01-01T00:00:00Z',lastTouchedAt:'2020-01-01T00:00:00Z'})]; state.settings.retentionDays=7", h.context);
+  const cleanup = vm.runInContext('performCleanup()', h.context);
+  await new Promise(resolve => setImmediate(resolve));
+  vm.runInContext("state.items[0].text='edited while uploading'; touch(state.items[0])", h.context);
+  release(); await cleanup;
+  assert.equal(vm.runInContext('state.items[0].text', h.context), 'edited while uploading');
+  assert.equal(vm.runInContext('state.items[0].archivedAt', h.context), null);
+});
