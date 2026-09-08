@@ -117,15 +117,27 @@ test('projection title fallbacks and tombstones retain the original creation day
   assert.equal(context.result.record.updatedAt, '2026-08-18T01:00:00.000Z');
 });
 
-test('all primary Clip mutation paths enqueue only after the local save call', () => {
-  const { source } = loadApp();
-  const pairs = [
-    /saveState\(\);\s*(?:recordClipActivity\([^;]+;\s*)?queueJournalItem\(dup/,
-    /saveState\(\);\s*(?:recordClipActivity\([^;]+;\s*)?queueJournalItem\(item\)/,
-    /saveState\(\);\s*queueJournalItem\(item, \{ deleted: true/,
-  ];
-  pairs.forEach(pattern => assert.match(source, pattern));
-  assert.match(source, /import\(JOURNAL\.moduleUrl\)/);
+test('new, recaptured and edited clips reach Journal only after a successful local save', () => {
+  const { context } = loadApp();
+  const events = [];
+  context.writeMirror = () => {};
+  context.queueJournalItem = () => events.push('journal');
+  context.recordClipActivity = () => {};
+  context.toast = () => {};
+  const setItem = context.localStorage.setItem;
+  context.localStorage.setItem = (key, value) => { setItem(key, value); if (key === 'clip.v1') events.push('saved'); };
+  for (const action of ["addItem('clip', '한글 memo')", "addItem('clip', '한글 memo')", "updateItem(state.items[0], {text:'Edited', label:'', pinned:false})"]) {
+    events.length = 0; vm.runInContext(action, context);
+    assert.deepEqual(events, ['saved', 'journal']);
+  }
+  const saved = vm.runInContext('JSON.stringify(state.items)', context);
+  context.localStorage.setItem = () => { throw new Error('QuotaExceededError'); };
+  for (const action of ["addItem('clip', 'New unsaved text')", "addItem('clip', 'Edited')", "updateItem(state.items[0], {text:'Unsaved edit', label:'', pinned:false})"]) {
+    events.length = 0;
+    assert.equal(vm.runInContext(action, context), null);
+    assert.equal(vm.runInContext('JSON.stringify(state.items)', context), saved);
+    assert.deepEqual(events, [], 'failed storage must not publish or mirror edits');
+  }
 });
 
 test('Pages ownership is portable and custom domains stop sync explicitly', () => {

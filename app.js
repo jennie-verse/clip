@@ -17,7 +17,7 @@
 // ./sw.js — Clip loads as a plain script (no <script type="module">), so
 // this lives here instead of a separate version.js the way the ES-module
 // apps do it.
-const APP_BUILD = '2026.09.05-release1';
+const APP_BUILD = '2026.09.07-review1';
 const CONFIG = {
   appName: 'Clip',
   fileBase: 'clip',
@@ -125,27 +125,7 @@ function normalize(data, opts = {}) {
   return out;
 }
 
-/**
- * One-time "fresh start" reset: wipes only this app's own localStorage keys
- * (anything prefixed 'clip.') the first time the app loads after this
- * release stamp. Never touches SYNC.tokenKey ('sync.token.v1') — that key
- * is shared across apps, not namespaced to Clip — nor any other app's data.
- * Clip has no IndexedDB usage to clear.
- */
-function runFreshStartReset() {
-  const MARK_KEY = 'clip.freshStart.v1';
-  try {
-    if (localStorage.getItem(MARK_KEY) === APP_BUILD) return;
-    const keysToRemove = [];
-    for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i);
-      if (key && key.startsWith('clip.') && key !== MARK_KEY) keysToRemove.push(key);
-    }
-    keysToRemove.forEach(key => localStorage.removeItem(key));
-    localStorage.setItem(MARK_KEY, APP_BUILD);
-  } catch (e) { /* storage unavailable — nothing to reset */ }
-}
-
+// App updates preserve saved clips and settings. Clearing data is an explicit Settings action.
 function loadState() {
   let raw = null;
   try {
@@ -162,15 +142,20 @@ function loadState() {
   }
 }
 
+let storageFailureToast = null;
 function saveState() {
   cleanupTombstones();
   state.savedAt = nowIso();
   try {
     localStorage.setItem(CONFIG.storageKey, JSON.stringify(state));
     storageOK = true;
+    storageFailureToast?.remove();
+    storageFailureToast = null;
   } catch (e) {
     storageOK = false;
-    toast('Storage is full — could not save. Delete some items.', 'err', 6000);
+    storageFailureToast?.remove();
+    storageFailureToast = toast('Could not save on this device. Keep your text open and try again after freeing storage.', 'err', 6000);
+    return false;
   }
   writeMirror();
   if (isSyncEnabled()) schedulePush();
@@ -178,6 +163,7 @@ function saveState() {
     const deletes = pendingJournalDeletes.splice(0);
     deletes.forEach(entry => queueJournalItem(entry.item, { deleted: true, updatedAt: entry.updatedAt }));
   }
+  return true;
 }
 
 /**
@@ -245,6 +231,14 @@ function trimEmergency() {
  * @returns {{item:object, merged:boolean, truncated:boolean, removed:number}|null}
  */
 function addItem(kind, rawText, opts = {}) {
+  const previous = JSON.stringify(state);
+  const previousDeletes = pendingJournalDeletes.length;
+  const commit = () => {
+    if (saveState()) return true;
+    state = JSON.parse(previous);
+    pendingJournalDeletes.length = previousDeletes;
+    return false;
+  };
   let text = String(rawText == null ? '' : rawText).replace(/\r\n/g, '\n');
   if (text.trim() === '') return null;
 
@@ -273,7 +267,7 @@ function addItem(kind, rawText, opts = {}) {
       }
       touch(dup);
       const removed = trimEmergency();
-      saveState();
+      if (!commit()) return null;
       recordClipActivity(dup, 'moved-to-today', previousDate);
       queueJournalItem(dup, { previousDate });
       return { item: dup, merged: true, truncated, removed };
@@ -296,7 +290,7 @@ function addItem(kind, rawText, opts = {}) {
   state.items.unshift(item);
 
   const removed = trimEmergency();
-  saveState();
+  if (!commit()) return null;
   queueJournalItem(item);
   return { item, merged: false, truncated, removed };
 }
@@ -318,6 +312,8 @@ function copyItem(item) {
 
 /** Edit sheet save. Touches the clock (plan 4-1: "편집 후 저장"). */
 function updateItem(item, { text, label, pinned }) {
+  const previous = JSON.stringify(state);
+  const previousDeletes = pendingJournalDeletes.length;
   item.text = String(text).slice(0, CONFIG.maxTextLength);
   if (item.kind === 'clip') {
     item.label = String(label || '').trim().slice(0, CONFIG.maxLabelLength);
@@ -326,7 +322,11 @@ function updateItem(item, { text, label, pinned }) {
   item.pinned = pinned;
   touch(item);
   const removed = trimEmergency();
-  saveState();
+  if (!saveState()) {
+    state = JSON.parse(previous);
+    pendingJournalDeletes.length = previousDeletes;
+    return null;
+  }
   recordClipActivity(item, 'edited');
   queueJournalItem(item);
   return removed;
@@ -922,7 +922,7 @@ function saveEditor() {
       return;
     }
     snapshot();
-    updateItem(item, { text, label, pinned });
+    if (updateItem(item, { text, label, pinned }) === null) return;
     closeSheet();
     render();
     toast('Saved.', 'ok');
@@ -1846,6 +1846,7 @@ function bind() {
     bd.addEventListener('click', ev => { if (ev.target === bd) closeSheet(); });
   });
   document.addEventListener('keydown', ev => {
+    if (ev.isComposing || ev.keyCode === 229) return;
     const modalOpen = !el['modal-confirm'].classList.contains('hidden');
     if (ev.key === 'Escape') { if (modalOpen) confirmClose(false); else if (openSheetEl) closeSheet(); return; }
     if (ev.key === 'Tab') { if (modalOpen) trapFocus(el['modal-confirm'], ev); else if (openSheetEl) trapFocus(openSheetEl, ev); }
@@ -1953,7 +1954,6 @@ function registerSW() {
 }
 
 function init() {
-  runFreshStartReset();
   cache();
   loadState();
   applyFontStep();
