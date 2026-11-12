@@ -622,9 +622,9 @@ body {
 .modal-actions .btn { flex: 1 1 0; }
 
 /* ── 펼친 화면(iPhone Duo) · iPad · Mac 의 넓은 창 ─────────────────────
-   접으면 폰(~320px), 펼치면 태블릿(~1000px)이 되는 기기를 위해 기기 이름이 아니라
-   화면 폭으로만 나눕니다. 창 크기가 바뀌어도 CSS 가 바로 다시 배치합니다. */
-@media (min-width: 760px) {
+   접으면 폰(466x678), 펼치면 태블릿(세로 669x951, 가로 951x669)이 되는 기기를 위해
+   기기 이름이 아니라 화면 폭+높이로만 나눕니다(접은 가로 678x466은 낮아서 폰 배치). 창 크기가 바뀌어도 CSS 가 바로 다시 배치합니다. */
+@media (min-width: 640px) and (min-height: 560px) {
   .wrap { padding-top: 20px; }
   .add-row { grid-template-columns: 1fr 1fr; }
   .cards { grid-template-columns: 1fr 1fr; }
