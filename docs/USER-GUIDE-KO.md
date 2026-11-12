@@ -2,7 +2,7 @@
 
 화면의 메뉴 이름은 영문 그대로 병기합니다. 예: 설정(Settings) → 텍스트 크기(Text size)
 
-## 1. 홈 화면에 추가하기 (iPhone / iPad)
+## 1. 홈 화면에 추가하기 (iPhone / iPhone Duo / iPad, Mac Safari도 동일)
 
 1. Safari에서 Clip 주소를 엽니다.
 2. 아래쪽 공유(Share) 버튼을 누릅니다.

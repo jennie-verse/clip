@@ -76,3 +76,10 @@
 - 검증: 전체 기존 테스트 및 추가 회귀 테스트, JavaScript 구문 검사. 격리된 Chromium에서 데스크톱 1280×900/모바일 390×844 저장·새로고침·실패 복구 검증. Browser plugin not available; bundled Playwright 사용.
 - 주입 검증: localStorage 용량 초과 후 데이터 유지 및 삭제 발행 차단.
 - 한계: 실제 iPhone Safari/Home Screen 및 개인 계정의 실서버 동기화는 직접 시험하지 않음.
+
+
+## 2026-11-12 폴더블(iPhone Duo)·Mac 최적화 (foldable1)
+
+- 변경: 화면 폭 기준 레이아웃(760px 이상에서 카드 2열·추가 버튼 2열, 시트 폭 정리), 가장자리 당김 방지(overscroll), 더블탭 지연 제거(touch-action), Mac 전용 hover 표시와 `/` 키로 검색 이동. 저장 데이터·키·동기화 형식·색상은 그대로. 빌드 표시와 캐시 이름은 `2026.11.12-foldable1`로 통일.
+- 검증: 기존 테스트 + 새 레이아웃 테스트(`tests/layout.test.cjs`)와 JavaScript 구문 검사 통과. Chromium(Playwright) 360×780 / 840×760 / 1000×700 / 1440×900에서 메인·설정 화면 가로 넘침 없음, 1000→360 폭 변경 후에도 넘침 없음. 콘솔의 404 한 건은 이 저장소 밖 `../shared/` 파일(로컬 서버에는 없음)로 기존과 동일.
+- 한계: 실제 iPhone Duo 접기/펼치기 확인은 사용자가 quill 앱에서만 했고, 이 앱(Clip)은 아직 실기기 확인이 필요합니다.

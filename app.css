@@ -68,7 +68,12 @@
 html {
   font-size: var(--fs-root);
   -webkit-text-size-adjust: 100%;
+  /* 홈 화면 앱에서 가장자리를 당길 때 화면이 출렁이지 않게 합니다. */
+  overscroll-behavior: none;
 }
+
+/* 더블탭 지연·더블탭 확대 없이 바로 반응하게 합니다(핀치 확대는 그대로). */
+button, input, textarea, label, summary, a { touch-action: manipulation; }
 
 body {
   margin: 0;
@@ -616,11 +621,30 @@ body {
 .modal-actions { display: flex; gap: 8px; }
 .modal-actions .btn { flex: 1 1 0; }
 
-/* ── iPad / wide screens ──────────────────────────────────────────────── */
-@media (min-width: 900px) {
+/* ── 펼친 화면(iPhone Duo) · iPad · Mac 의 넓은 창 ─────────────────────
+   접으면 폰(~320px), 펼치면 태블릿(~1000px)이 되는 기기를 위해 기기 이름이 아니라
+   화면 폭으로만 나눕니다. 창 크기가 바뀌어도 CSS 가 바로 다시 배치합니다. */
+@media (min-width: 760px) {
   .wrap { padding-top: 20px; }
   .add-row { grid-template-columns: 1fr 1fr; }
   .cards { grid-template-columns: 1fr 1fr; }
+  /* 시트는 아래에 붙은 넓은 띠 대신, 가운데의 읽기 좋은 폭으로 둡니다. */
+  .sheet { width: min(86vw, 640px); }
+  .sheet.tall { width: min(86vw, 680px); }
+}
+
+/* 마우스·트랙패드(Mac)에서만 hover 표시. 터치 기기에서는 적용되지 않으며,
+   hover 에만 의존하는 기능은 없습니다. 색은 기존 :active 색과 같습니다. */
+@media (hover: hover) and (pointer: fine) {
+  .icon-btn:hover, .text-btn:hover, .clear-btn:hover, .card-more:hover { background: var(--primary-soft); }
+  .btn-primary:hover { background: #E7A0B1; }
+  .btn-ghost:hover { background: var(--primary-soft); }
+  .btn-danger:hover { background: #F6DAD5; }
+  .seg-btn:not([aria-pressed="true"]):hover { background: var(--primary-soft); }
+  .menu-item:hover { background: var(--primary-soft); }
+  .menu-item.danger:hover { background: #F6DAD5; }
+  .card:hover { border-color: #F0D3DC; }
+  .sheet-body, .text-area { scrollbar-color: var(--primary) transparent; }
 }
 
 /* ── reduced motion ───────────────────────────────────────────────────── */

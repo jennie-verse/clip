@@ -17,7 +17,7 @@
 // ./sw.js — Clip loads as a plain script (no <script type="module">), so
 // this lives here instead of a separate version.js the way the ES-module
 // apps do it.
-const APP_BUILD = '2026.09.08-review2';
+const APP_BUILD = '2026.11.12-foldable1';
 const CONFIG = {
   appName: 'Clip',
   fileBase: 'clip',
@@ -1881,6 +1881,11 @@ function bind() {
   document.addEventListener('keydown', ev => {
     if (ev.isComposing || ev.keyCode === 229) return;
     const modalOpen = !el['modal-confirm'].classList.contains('hidden');
+    // Mac keyboard: "/" jumps to Search (only when not typing and nothing is open).
+    if (ev.key === '/' && !ev.metaKey && !ev.ctrlKey && !ev.altKey && !modalOpen && !openSheetEl &&
+        !/^(INPUT|TEXTAREA|SELECT)$/.test((document.activeElement || {}).tagName || '')) {
+      ev.preventDefault(); el['search'].focus(); return;
+    }
     if (ev.key === 'Escape') { if (modalOpen) confirmClose(false); else if (openSheetEl) closeSheet(); return; }
     if (ev.key === 'Tab') { if (modalOpen) trapFocus(el['modal-confirm'], ev); else if (openSheetEl) trapFocus(openSheetEl, ev); }
   });
