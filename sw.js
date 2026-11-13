@@ -7,7 +7,7 @@
      already installed this app.
    ========================================================================== */
 
-const CACHE = 'clip-v1-2026.11.12-foldable2';
+const CACHE = 'clip-v1-2026.11.12-foldable3';
 
 /* Caches with this prefix are never deleted here — they're the mirror
    used to carry items between the Home Screen app and Safari (see

@@ -274,7 +274,8 @@ body {
 .sheet {
   width: 100%;
   max-width: 640px;
-  max-height: 94%;
+  /* 위쪽 안전영역(상태바) 아래까지만 올라오게 합니다. 안전영역이 0이면 94% 그대로입니다. */
+  max-height: min(94%, calc(100% - var(--sat)));
   display: flex; flex-direction: column;
   background: var(--bg);
   border-radius: 18px 18px 0 0;
