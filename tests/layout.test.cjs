@@ -21,11 +21,16 @@ test('wide/unfolded screens: two-column cards from the tablet-portrait tier, cen
 
 test('the build stamp in app.js matches the service worker cache name', () => {
   const stamp = read('app.js').match(/const APP_BUILD = '([^']+)'/)[1];
-  assert.equal(stamp, '2026.11.12-foldable3');
+  assert.equal(stamp, '2026.11.17-duocheck1');
   assert.equal(read('sw.js').match(/const CACHE = 'clip-v1-([^']+)'/)[1], stamp);
 });
 
 test('sheets never rise into the top safe-area inset (status bar)', () => {
   const css = read('app.css');
   assert.match(css, /\.sheet \{[^}]*max-height: min\(94%, calc\(100% - var\(--sat\)\)\)/);
+});
+
+test('sheet header buttons stay inside the landscape side safe-area insets', () => {
+  const css = read('app.css');
+  assert.match(css, /\.sheet-head \{[^}]*padding: 6px max\(12px, var\(--sar\)\) 6px max\(12px, var\(--sal\)\);/);
 });

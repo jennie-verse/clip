@@ -17,7 +17,7 @@
 // ./sw.js — Clip loads as a plain script (no <script type="module">), so
 // this lives here instead of a separate version.js the way the ES-module
 // apps do it.
-const APP_BUILD = '2026.11.12-foldable3';
+const APP_BUILD = '2026.11.17-duocheck1';
 const CONFIG = {
   appName: 'Clip',
   fileBase: 'clip',

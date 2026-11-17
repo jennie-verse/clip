@@ -290,7 +290,7 @@ body {
   flex: none;
   display: flex; align-items: center; justify-content: space-between;
   gap: 8px;
-  padding: 6px 12px;
+  padding: 6px max(12px, var(--sar)) 6px max(12px, var(--sal));
   border-bottom: 1px solid var(--border);
 }
 .sheet-title { margin: 0; font-size: 1.0833rem; font-weight: 700; }
