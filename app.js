@@ -17,7 +17,7 @@
 // ./sw.js — Clip loads as a plain script (no <script type="module">), so
 // this lives here instead of a separate version.js the way the ES-module
 // apps do it.
-const APP_BUILD = '2026.11.19-shortcutauto1';
+const APP_BUILD = '2026.11.19-shortcutauto2';
 const CONFIG = {
   appName: 'Clip',
   fileBase: 'clip',
@@ -671,7 +671,10 @@ function looksTruncatedByUrlLimit(rawValue) {
 
 function handleUrlIntake() {
   let params;
-  try { params = new URLSearchParams(location.search); } catch (e) { return; }
+  // The Shortcut's "URL Encode" writes a space as %20, so a bare "+" in the address
+  // is a real plus sign (phone numbers such as +82 10…), not form-encoding for a
+  // space. URLSearchParams would turn it into a space, so protect it first.
+  try { params = new URLSearchParams(location.search.replace(/\+/g, '%2B')); } catch (e) { return; }
 
   // ?paste=1 → the long-text route: a Shortcut opens Clip with this short,
   // fixed URL (no payload in the query string at all) while the text sits on
@@ -726,7 +729,7 @@ function cache() {
     'sheet-view', 'view-text', 'btn-view-copy',
     'sheet-settings', 'sheet-guide', 'sheet-menu', 'menu-preview', 'menu-list',
     'modal-confirm', 'confirm-title', 'confirm-desc', 'btn-confirm-yes', 'btn-confirm-no',
-    'toast-wrap', 'app-url', 'app-paste-url', 'guide-url', 'guide-paste-url', 'btn-copy-url', 'btn-copy-paste-url', 'btn-copy-url2', 'btn-copy-paste-url2', 'btn-open-guide',
+    'toast-wrap', 'app-url', 'app-paste-url', 'guide-url', 'guide-paste-url', 'btn-copy-url', 'btn-copy-paste-url', 'btn-copy-url2', 'btn-copy-paste-url2', 'btn-copy-test', 'btn-open-guide',
     'btn-fontstep-reset', 'retention-group', 'btn-clear-expired', 'cleanup-line', 'set-merge',
     'btn-export-json', 'btn-import-json', 'btn-export-csv', 'file-import', 'btn-wipe',
     'mode-line', 'btn-pull-other', 'pull-other-hint', 'storage-line', 'backup-line', 'app-version-note',
@@ -1114,6 +1117,7 @@ function applyRetentionUI() {
 function baseUrl() { return location.origin + location.pathname.replace(/index\.html$/, ''); }
 function appUrl() { return baseUrl() + '?add='; }
 function pasteShortcutUrl() { return baseUrl() + '?paste=1'; }
+const TEST_LINE = '테스트 clip & 100% + 한글';
 
 function backupAgoText(iso) {
   const then = new Date(iso).getTime();
@@ -1998,6 +2002,10 @@ function bind() {
   el['btn-copy-url2'].addEventListener('click', copyAddress(appUrl));
   el['btn-copy-paste-url'].addEventListener('click', copyAddress(pasteShortcutUrl));  // long-text address (?paste=1)
   el['btn-copy-paste-url2'].addEventListener('click', copyAddress(pasteShortcutUrl));
+  // A line with the characters that usually break things (& % + Korean), to test a new Shortcut with one tap.
+  el['btn-copy-test'].addEventListener('click', () => writeClipboard(TEST_LINE)
+    .then(() => toast('Test line copied.', 'ok'))
+    .catch(() => toast('Could not copy — press and hold the test line instead.', 'warn', 4000)));
   el['btn-open-guide'].addEventListener('click', () => { closeSheet(); refreshSettingsUI(); openSheet(el['sheet-guide']); });
 
   el['btn-export-json'].addEventListener('click', exportJson);

@@ -151,3 +151,20 @@
   3. 잘림 경고 문구에서 근거 없는 "iOS의 URL 한계" 표현 삭제. USER-GUIDE-KO 5장 재작성(5-1 자동 저장 · 5-3 공유 시트 · 5-4 긴 글 · 5-6 예전 `?paste=1` 단축어).
 - 검증: `node --test tests/*.test.cjs` 35/35(자동 경로 테스트 6개와 주소·버튼 배선 검사 추가), `node --check app.js sw.js` 통과. Chromium 실제 화면 점검 24개 · 화면 83개 · 엣지 케이스 13개 · 자동 저장 57개 · Copy 버튼 5개 · 업데이트 경로 9개×2 통과, 콘솔·페이지 오류 0건. 빌드/캐시 이름 `clip-v1-2026.11.19-shortcutauto1`.
 - 한계 / Pending(실기기에서 확인 필요): iPhone Duo에서 5-1대로 만든 단축어가 실제로 자동 저장하는지(이 환경에는 iOS가 없어 단축어를 실행하지 못했고, 단축어가 만들 주소를 브라우저로 재현했습니다), 5-3의 공유 시트용 변경, 그리고 iOS 쪽 주소 길이 한계(긴 글을 실제로 보내 보기).
+
+## 2026-11-19 단축어 만드는 순서 재검토와 보강 (`2026.11.19-shortcutauto2`)
+
+계기: 사용자가 단축어를 다시 만들기 전에 한 번 더 검토해 달라고 요청.
+
+- 근거로 확인한 것 (Apple 단축어 사용자 설명서 iOS 26·27판, 실제로 내보낸 단축어 파일, 포럼 사례)
+  - **변수 이름**: URL Encode 동작(`is.workflow.actions.urlencode`)의 출력 이름은 `URL Encoded Text`입니다(실제 내보낸 단축어 파일과 Keyboard Maestro 포럼 글에서 확인).
+  - **텍스트 칸에 변수 넣기**: 텍스트 칸을 누르면 Variables 막대와 키보드가 나오고, **Select Variable**을 누르면 각 동작 아래에 파란 토큰이 보이며, 그것을 누르면 커서 위치에 들어갑니다(Apple "Use variables").
+  - **만들기·이름·동작 추가·테스트**: `+` → New Shortcut → Rename → Add Action / Search Actions → Done, 테스트는 ▶(Apple "Create a custom shortcut").
+  - **공유 시트**: Details → Show in Share Sheet, 입력 카드의 If there's no input → Get Clipboard(Apple "Limit the input for a shortcut").
+  - **공백은 `%20`**: 단축어로 만든 주소의 실제 사례(Obsidian 포럼 글의 `content=你%20好`, r/shortcuts의 `Citizens%20%26%20Saints`)로 확인했습니다.
+- 찾아서 고친 것
+  1. **안내 시트의 실행 방법 두 군데가 옛 iOS 기준이라 틀려 있었습니다.** 홈 화면은 "Share → Add to Home Screen"이 아니라 단축어의 **Details → Add to Home Screen → Add**, 제어 센터는 "Settings → Control Center"가 아니라 **제어 센터 → 왼쪽 위 + → Add a Control → Shortcut → Choose**입니다(Apple "Add a shortcut to the Home Screen", "Use Control Center to run shortcuts"). Back Tap 경로(Settings → Accessibility → Touch → Back Tap)는 맞았습니다.
+  2. 단축어 만드는 순서를 화면 조작 단위로 구체화했습니다(Rename, Add Action, Search Actions, Select Variable, Done). 주소는 직접 치지 않고 **Copy address로 붙여넣게** 해 자동 대문자·자동 고침으로 주소가 바뀌는 것을 막고, `Copy test line` 버튼과 "If something is off" 문제 해결 목록을 추가했습니다.
+  3. **`+` 처리**: URL Encode가 `+`를 `%2B`로 바꾸는지는 문서에서 확인하지 못했습니다. 공백이 `%20`으로 쓰이므로 주소 속의 맨 `+`는 공백이 아니라 더하기 기호입니다. 그래서 `?add=`·`?label=`을 읽을 때 맨 `+`를 `%2B`로 바꿔 두도록 앱을 고쳤습니다(전화번호 `+82 10-…` 보호). 단축어가 `+`를 인코딩하든 그대로 두든 같은 글이 저장됩니다.
+- 검증: `node --test tests/*.test.cjs` 36/36(`+` 테스트와 테스트 문장 일치 검사 추가). Chromium 실제 화면 점검 24개 · 화면 83개 · 엣지 케이스 13개 · 자동 저장 59개(`+82` 두 가지 인코딩 포함) · Copy 버튼 6개 · 업데이트 경로 9개×2 통과, 콘솔·페이지 오류 0건. 빌드/캐시 이름 `clip-v1-2026.11.19-shortcutauto2`.
+- 한계 / Pending(실기기에서 확인 필요): 이 환경에는 iOS가 없어 단축어를 직접 만들거나 실행하지 못했습니다. 위 순서는 Apple 문서의 조작 설명과 실제 단축어 파일 구조에 맞춘 것이고, 최신 iOS 화면의 글자 모양은 사용자의 기기에서 한 번 따라 해 봐야 합니다. `URL Encode`가 `+`를 실제로 어떻게 쓰는지는 위 테스트 문장(`+` 포함)으로 사용자가 직접 확인할 수 있습니다.

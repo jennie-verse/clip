@@ -303,29 +303,32 @@
 
       <h3 class="sec-head">1 · Build the "Add to Clip" shortcut</h3>
       <ol class="steps">
-        <li>Open the Shortcuts app and tap <b>+</b> in the top right.</li>
-        <li>Add <b>Get Clipboard</b>.</li>
-        <li>Add <b>URL Encode</b>. It makes the copied text safe to carry inside an address.</li>
-        <li>Add <b>Text</b>. Type this address, then insert the <b>URL Encoded Text</b> variable right after the “=”.
+        <li>Open the Shortcuts app and tap <b>+</b>. Tap <b>New Shortcut</b>, tap <b>Rename</b>, type <b>Add to Clip</b> and confirm.</li>
+        <li>Tap <b>Add Action</b>, search for <b>Get Clipboard</b> and tap it.</li>
+        <li>Tap <b>Search Actions</b>, search for <b>URL Encode</b> and tap it. Leave it on <b>Encode</b>. It makes the copied text safe to carry inside an address.</li>
+        <li>Search for <b>Text</b> and tap it. Tap its text box and paste this address (tap <b>Copy address</b> first), with the cursor left at the very end.
           <div class="url-box"><code id="guide-url">…</code></div>
           <button type="button" class="btn btn-ghost btn-sm" id="btn-copy-url2">Copy address</button>
         </li>
-        <li>Add <b>Open URLs</b>. It opens that Text.</li>
-        <li>Save it as <b>Add to Clip</b>.</li>
+        <li>Still in that text box, tap <b>Select Variable</b> above the keyboard, then tap the blue <b>URL Encoded Text</b> token under the <b>URL Encode</b> action. It appears as a blue pill right after the “=”.</li>
+        <li>Search for <b>Open URLs</b> and tap it. Its box must show the blue <b>Text</b> pill. If it is empty, tap it, choose <b>Select Variable</b> and tap the blue <b>Text</b> token.</li>
+        <li>Tap <b>Done</b>.</li>
       </ol>
 
-      <h3 class="sec-head">2 · Register a way to run it <span class="opt">(pick one)</span></h3>
-      <ul class="steps">
-        <li><b>Home Screen</b> — Share → Add to Home Screen</li>
-        <li><b>Back Tap</b> — Settings → Accessibility → Touch → Back Tap → Double Tap → <b>Add to Clip</b></li>
-        <li><b>Control Center</b> — Settings → Control Center → add Shortcuts</li>
-      </ul>
-
-      <h3 class="sec-head">3 · Using it</h3>
+      <h3 class="sec-head">2 · Test it</h3>
       <ol class="steps">
-        <li>Copy some text in any app.</li>
-        <li>Run <b>Add to Clip</b>. Clip opens in Safari and saves it by itself — you will see “Saved.” Then switch straight back.</li>
+        <li>Tap <b>Copy test line</b>. It copies <code>테스트 clip &amp; 100% + 한글</code>.
+          <button type="button" class="btn btn-ghost btn-sm" id="btn-copy-test">Copy test line</button>
+        </li>
+        <li>Run <b>Add to Clip</b>: tap ▶ in the editor, or tap it in the Shortcuts list. Clip opens in Safari, shows “Saved.”, and the same line is the top card.</li>
       </ol>
+
+      <h3 class="sec-head">3 · Register a way to run it <span class="opt">(pick one)</span></h3>
+      <ul class="steps">
+        <li><b>Home Screen</b> — open the shortcut, tap <b>Details</b>, tap <b>Add to Home Screen</b>, then <b>Add</b>.</li>
+        <li><b>Back Tap</b> — Settings → Accessibility → Touch → Back Tap → Double Tap → under <b>Shortcuts</b>, choose <b>Add to Clip</b>.</li>
+        <li><b>Control Center</b> — open Control Center, tap <b>+</b> at the top left → <b>Add a Control</b> → <b>Shortcut</b> → <b>Choose</b> → <b>Add to Clip</b>.</li>
+      </ul>
 
       <h3 class="sec-head">4 · Also from the Share Sheet <span class="opt">(optional)</span></h3>
       <p class="sec-desc">To save the item you share instead of whatever is on the clipboard:</p>
@@ -341,10 +344,13 @@
       <button type="button" class="btn btn-ghost btn-sm" id="btn-copy-paste-url2">Copy address</button>
       <p class="sec-desc spaced">It opens a Paste sheet: tap <b>Paste from clipboard</b>, then <b>Paste</b> on the small bubble iOS shows. iOS never lets a web page read your clipboard by itself, so this route cannot save automatically.</p>
 
-      <h3 class="sec-head">Good to know</h3>
+      <h3 class="sec-head">If something is off</h3>
       <ul class="steps">
+        <li><b>“Nothing to add — the clip was empty.”</b> Nothing was on the clipboard, or the blue <b>URL Encoded Text</b> pill is missing from the Text box.</li>
+        <li><b>The saved card says “URL Encoded Text”</b> (or looks like an address): the variable was typed as words. Delete it and insert it with <b>Select Variable</b>.</li>
+        <li><b>A page that says “Error: URI Too Long”</b>: the clip is too long for this route. See step 5.</li>
+        <li><b>The clip is not in the Home Screen app.</b> The Shortcut opens Clip in Safari, which keeps its own storage. Turn on Sync, or use <b>Import from the other mode</b> in Settings.</li>
         <li>A Shortcut built with <b>Get Clipboard</b> + <b>Copy to Clipboard</b> + <b>Open URLs</b> on the Paste address cannot save by itself — iOS asks for those two taps. Rebuild it as in step 1 to get automatic saving back.</li>
-        <li>The Shortcut opens Clip in Safari, not in the Home Screen app. Turn on Sync, or use <b>Import from the other mode</b> in Settings, to see those clips in the Home Screen app.</li>
       </ul>
     </div>
   </div>

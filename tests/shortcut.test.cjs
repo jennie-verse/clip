@@ -229,7 +229,7 @@ test('every element id app.js looks up exists in index.html, and the Paste sheet
   assert.ok(js.includes("el['btn-paste-go'].addEventListener('click', () => pasteFromClipboard(true))"), 'Paste sheet button wiring');
 
   // Two addresses, each with its own Copy button: the automatic one (?add=) and the long-text one (?paste=1).
-  for (const id of ['app-url', 'app-paste-url', 'guide-url', 'guide-paste-url', 'btn-copy-url', 'btn-copy-url2', 'btn-copy-paste-url', 'btn-copy-paste-url2']) {
+  for (const id of ['app-url', 'app-paste-url', 'guide-url', 'guide-paste-url', 'btn-copy-url', 'btn-copy-url2', 'btn-copy-paste-url', 'btn-copy-paste-url2', 'btn-copy-test']) {
     assert.ok(ids.includes(id), id + ' must be looked up by cache()');
   }
   assert.ok(js.includes("el['btn-copy-url'].addEventListener('click', copyAddress(appUrl))"), 'Settings copy button copies the automatic address');
@@ -237,6 +237,10 @@ test('every element id app.js looks up exists in index.html, and the Paste sheet
   assert.ok(js.includes("el['btn-copy-paste-url'].addEventListener('click', copyAddress(pasteShortcutUrl))"), 'Settings paste-address copy button');
   assert.ok(js.includes("el['btn-copy-paste-url2'].addEventListener('click', copyAddress(pasteShortcutUrl))"), 'guide paste-address copy button');
   assert.ok(js.includes("el['app-url'].textContent = appUrl()") && js.includes("el['guide-url'].textContent = appUrl()"), 'the main addresses shown are the automatic ?add= one');
+  // The test line the guide shows is exactly the one its button copies (and it has the characters that usually break things).
+  assert.ok(js.includes("const TEST_LINE = '테스트 clip & 100% + 한글';"), 'copied test line');
+  assert.ok(html.includes('<code>테스트 clip &amp; 100% + 한글</code>'), 'shown test line matches the copied one');
+  assert.ok(js.includes("el['btn-copy-test'].addEventListener('click', () => writeClipboard(TEST_LINE)"), 'test-line button wiring');
   // The automatic recipe comes first on screen; the two-tap route is the long-text fallback after it.
   assert.ok(html.indexOf('id="app-url"') < html.indexOf('id="app-paste-url"'), 'Settings: automatic address before the long-text address');
   assert.ok(html.indexOf('id="guide-url"') < html.indexOf('id="guide-paste-url"'), 'guide: automatic recipe before the long-text route');
@@ -287,6 +291,22 @@ test('?add= keeps 20,000 characters of a longer text and says so; a cut-through-
   cut.run('handleUrlIntake()');
   assert.equal(cut.texts().length, 1, 'what arrived is still saved');
   assert.ok(cut.toasts.some(t => /cut short/.test(t.message) && /Paste from clipboard/.test(t.message)), 'and flagged, pointing to the long-text route');
+});
+
+test('?add= keeps a plus sign as a plus sign, whether or not the Shortcut encoded it (phone numbers), while %20 stays a space', T, () => {
+  const phone = '+82 10-1234-5678';
+  for (const search of [
+    '?add=' + encodeURIComponent(phone),                    // URL Encode wrote %2B82%2010-1234-5678
+    '?add=+82%2010-1234-5678',                              // URL Encode left the + bare
+    '?add=%2B82%2010-1234-5678',
+  ]) {
+    const h = loadClip({ search });
+    h.run('handleUrlIntake()');
+    assert.deepEqual(h.texts(), [phone], search);
+  }
+  const labelled = loadClip({ search: '?add=x&label=A+B%20C' });
+  labelled.run('handleUrlIntake()');
+  assert.equal(labelled.run('state.items[0].label'), 'A+B C');
 });
 
 test('the two addresses: the automatic one ends in ?add=, the long-text one in ?paste=1', T, () => {
