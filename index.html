@@ -320,10 +320,18 @@
         <li>Tap <b>Paste from clipboard</b>, then tap <b>Paste</b> on the small bubble iOS shows. Saved.</li>
       </ol>
 
+      <h3 class="sec-head">4 · Also from the Share Sheet <span class="opt">(optional)</span></h3>
+      <p class="sec-desc">If the Shortcut also shows in the Share Sheet, it needs this: without it, a Share Sheet run pastes whatever you copied earlier, not the item you shared.</p>
+      <ol class="steps">
+        <li>Open the shortcut, tap <b>Details</b> and turn on <b>Show in Share Sheet</b>. A <b>Receive … from Share Sheet</b> card appears at the top.</li>
+        <li>On that card, tap <b>Continue</b> and choose <b>Get Clipboard</b>. A run without a shared item then uses the clipboard instead.</li>
+        <li>Add <b>Copy to Clipboard</b> above <b>Open URLs</b> and set its input to <b>Shortcut Input</b>. If the shortcut still has a <b>Get Clipboard</b> action, delete it.</li>
+      </ol>
+
       <h3 class="sec-head">Good to know</h3>
       <ul class="steps">
         <li><b>Why two taps?</b> iOS never lets a web page read your clipboard by itself. The read has to follow a tap, and iOS then asks you to confirm with its own <b>Paste</b> bubble. Clip cannot skip that step.</li>
-        <li>A Shortcut you already built with <b>Get Clipboard</b> + <b>Copy to Clipboard</b> + <b>Open URLs</b> keeps working as it is. The first two steps are no longer needed, but they do no harm.</li>
+        <li>A Shortcut you already built with <b>Get Clipboard</b> + <b>Copy to Clipboard</b> + <b>Open URLs</b> keeps working when you run it from the Home Screen, Back Tap or Control Center. Those first two steps are not needed there, and you can leave them in. For the Share Sheet, see step 4.</li>
         <li><b>Short text, no taps:</b> build <b>Get Clipboard</b> → <b>URL Encode</b> → <b>Open URLs</b>, set to this address followed by the encoded text.
           <div class="url-box"><code id="guide-add-url">…</code></div>
           It saves instantly, but very long URLs can get cut off on the way to Clip, so long text may arrive shortened (Clip warns you when it can tell).</li>

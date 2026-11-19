@@ -21,6 +21,7 @@ GitHub 사용 경험이 많지 않아도 따라 할 수 있도록 순서대로 �
 ## 새 버전을 올릴 때 꼭 확인할 것
 
 - `app.js`나 `app.css`를 고쳤다면 `sw.js`의 `CACHE` 이름(`clip-v1` → `clip-v2` 등)을 반드시 함께 올립니다. 그래야 이미 홈 화면에 설치된 기기에서도 새 버전이 적용됩니다.
+- 배포 워크플로(`.github/workflows/deploy.yml`)에는 업로드한 Pages 파일이 GitHub의 목록에 보일 때까지 기다리는 단계(`Wait until the Pages artifact is listed`)가 있습니다(2026-11-19 추가: GitHub의 목록 반영이 늦어 `Found 0 artifact(s)`로 배포가 실패한 적이 있습니다). 그래도 배포가 `Found 0 artifact(s)` 또는 `Multiple artifacts named github-pages`로 실패하면 Actions에서 **Re-run failed jobs**를 누르지 말고 **Run workflow**로 새로 실행하세요. Re-run은 같은 실행 안에 Pages 파일을 한 번 더 올려서 중복 오류가 납니다.
 - `shared/` 폴더는 여러 앱이 함께 쓰는 고정 규칙이 있는 폴더입니다. `shared/v1/`은 절대 수정하지 마세요. `shared/v2/journal.js`는 새 앱(clip 등) 추가처럼 하위 호환을 지키는 변경만 허용됩니다.
 
 ## iPhone / iPad에서 확인하기

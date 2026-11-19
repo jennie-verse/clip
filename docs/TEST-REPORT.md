@@ -120,3 +120,18 @@
   - Mac Safari에서 Paste 시트의 확인 메뉴(키보드 ⌘V 또는 Paste 항목).
   - 배포 직후 업데이트: Safari에서 Clip을 한 번 열어 둔 뒤 설정(Settings) → `App version`이 새 버전인지 확인하고, 홈 화면 앱은 두 번 열어 반영되는지 확인.
   - 아주 긴 주소(`?add=`)가 iOS에서 실제로 어느 길이부터 잘리는지는 이 환경에서 검증하지 못했습니다(안내 문구는 "잘릴 수 있다"로 표현).
+
+## 2026-11-19 추가 검토와 보강 (`2026.11.19-shortcutpaste2`)
+
+바로 앞의 수정(`shortcutpaste1`)이 실제 사용에서 문제없는지 의심하는 눈으로 다시 점검했습니다.
+
+- 확인했고 문제 없는 것
+  - **업데이트가 기기에 전달되는지**: WebKit 소스(`SWServerRegistration::shouldSoftUpdate`)는 모든 일반 이동(navigation)마다 서비스 워커 갱신 확인을 예약하고(1초 뒤), `sw.js`는 HTTP 캐시를 거치지 않고 새로 받습니다. 그래서 "배포 직후 첫 실행은 옛 버전, 몇 초 뒤 새 버전이 설치되어 다음 실행부터 적용"이라는 USER-GUIDE-KO 5-7의 안내가 iOS에서도 맞습니다. 옛 버전 두 가지(`duocheck1`, `shortcutpaste1`)에서 `shortcutpaste2`로 넘어가는 경로를 각각 시뮬레이션했습니다(점검 9개씩 통과).
+  - **엣지 케이스 13개**(iOS 규칙을 흉내 낸 Chromium): 25,000자 클립보드(앞 20,000자 저장 + 경고), HTML·script 문자열이 실행되지 않고 글자 그대로 표시, 같은 글 반복(새로 쌓지 않고 맨 위로), 빠른 더블탭(한 개만 저장), 공백뿐인 클립보드, 한글+이모지+CRLF(줄바꿈 정규화), 키보드(Tab은 시트 안에서만 순환·Escape로 닫기·Space로 붙여넣기), 대화상자 이름·설명·live region·중복 id 없음, 모션 줄이기에서 애니메이션 꺼짐.
+- 찾아서 고친 것
+  1. **공유 시트(Share Sheet)로 실행하면 공유한 글이 아니라 이전에 복사해 둔 클립보드가 저장됩니다.** 사용자의 단축어는 `Show in Share Sheet`가 켜져 있는데 `Get Clipboard`만 쓰고 공유 입력(`Shortcut Input`)을 쓰지 않기 때문입니다. 앱이 아니라 단축어 쪽 문제라서, Apple 문서([입력 제한](https://support.apple.com/guide/shortcuts/apd8195f96d6/ios): 입력 액션의 `If there's no input`을 `Get Clipboard`로 두면 입력이 없을 때 클립보드를 입력으로 씀)로 확인한 방법을 안내 시트 4단계와 USER-GUIDE-KO 5-3에 추가했습니다.
+  2. 안내 시트의 "앞의 두 동작은 해롭지 않다"는 표현이 과해서 고쳤습니다(예: 클립보드가 비어 있을 때 `Copy to Clipboard`가 단축어를 멈출 수 있음. 직접 확인하지는 못해 표현을 낮췄습니다).
+  3. Paste 실패 안내에 "말풍선이 안 뜨면 Write it by hand instead"라는 출구를 추가했습니다.
+  4. 배포가 `Found 0 artifact(s)` 등으로 실패했을 때 `Re-run failed jobs` 대신 `Run workflow`로 새로 실행하라는 안내를 GITHUB-PAGES-KO에 추가했습니다.
+- 검증: `node --test tests/*.test.cjs` 29/29, `node --check app.js sw.js` 통과. Chromium 실제 화면 점검 24개, 화면 83개(5개 크기 · 안전영역 · 글자 6/17px), 엣지 케이스 13개, 업데이트 경로 9개×2 모두 통과(콘솔·페이지 오류 0건). 빌드/캐시 이름 `clip-v1-2026.11.19-shortcutpaste2`.
+- 한계 / Pending(실기기에서 확인 필요): 앞의 `shortcutpaste1` 항목과 같습니다. 특히 iPhone Duo Safari에서 실제 단축어 → Paste 시트 → iOS **Paste 말풍선** → 저장, 그리고 4단계(공유 시트용 단축어)의 메뉴 이름·동작은 Apple 문서로만 확인했고 실기기에서 한 번 따라 해 봐야 합니다.

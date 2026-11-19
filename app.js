@@ -17,7 +17,7 @@
 // ./sw.js — Clip loads as a plain script (no <script type="module">), so
 // this lives here instead of a separate version.js the way the ES-module
 // apps do it.
-const APP_BUILD = '2026.11.19-shortcutpaste1';
+const APP_BUILD = '2026.11.19-shortcutpaste2';
 const CONFIG = {
   appName: 'Clip',
   fileBase: 'clip',
@@ -1016,7 +1016,7 @@ async function pasteFromClipboard(fromSheet) {
     // already started waiting on its own bubble owns the message instead.
     if (seq !== pasteSeq) return;
     if (fromSheet) {
-      setPasteNote('Nothing was pasted. Tap the button again, then tap Paste on the bubble.', true);
+      setPasteNote('Nothing was pasted. Tap the button again, then tap Paste on the bubble. Still nothing? Use “Write it by hand instead”.', true);
     } else {
       toast('Could not read the clipboard. Paste it below instead.', 'warn', 4000);
       openEditor('clip', null);
