@@ -104,6 +104,28 @@
   </div>
 </div>
 
+<!-- ─────────── Sheet: paste (opened by the Shortcut's ?paste=1 address) ───────────
+     iOS only lets a page read the clipboard from inside a tap, so the Shortcut
+     lands here instead of Clip trying (and failing) to read it on load. -->
+<div class="sheet-backdrop hidden" id="sheet-paste">
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="paste-title" aria-describedby="paste-desc">
+    <div class="sheet-head">
+      <button type="button" class="text-btn" data-close-sheet>Cancel</button>
+      <h2 class="sheet-title" id="paste-title">Paste</h2>
+      <span class="text-btn ghosted" aria-hidden="true">Cancel</span>
+    </div>
+    <div class="sheet-body">
+      <p class="paste-lead" id="paste-desc">Tap the button, then tap <b>Paste</b> on the small bubble iOS shows.</p>
+      <button type="button" class="btn btn-primary paste-go" id="btn-paste-go">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 6v12M6 12h12"/></svg>
+        Paste from clipboard
+      </button>
+      <p class="hint paste-note" id="paste-status" role="status" aria-live="polite"></p>
+      <button type="button" class="link-btn" id="btn-paste-write">Write it by hand instead</button>
+    </div>
+  </div>
+</div>
+
 <!-- ─────────── Sheet: full view ─────────── -->
 <div class="sheet-backdrop hidden" id="sheet-view">
   <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="view-title">
@@ -159,7 +181,7 @@
       </label>
 
       <h3 class="sec-head">Shortcut</h3>
-      <p class="sec-desc">Add this address to the iOS Shortcuts app to save clipboard text with one tap — no length limit, since it reads the clipboard directly instead of encoding text into the URL.</p>
+      <p class="sec-desc">Add this address to the iOS Shortcuts app (<b>Open URLs</b>). After you copy something, run the Shortcut: Clip opens a Paste sheet. Tap <b>Paste from clipboard</b>, then <b>Paste</b> on the bubble iOS shows. Any length works, since the text travels on the clipboard, not in the URL.</p>
       <div class="url-box"><code id="app-url">…</code></div>
       <div class="btn-row">
         <button type="button" class="btn btn-ghost btn-sm" id="btn-copy-url">Copy address</button>
@@ -272,14 +294,12 @@
       <button type="button" class="text-btn strong" data-close-sheet>Close</button>
     </div>
     <div class="sheet-body">
-      <p class="sec-desc">Copy → one tap → saved automatically. Set it up once.</p>
+      <p class="sec-desc">Copy → run the Shortcut → tap Paste. Set it up once.</p>
 
-      <h3 class="sec-head">1 · Build the "capture" shortcut <span class="opt">(recommended)</span></h3>
+      <h3 class="sec-head">1 · Build the "Add to Clip" shortcut <span class="opt">(recommended · any length)</span></h3>
       <ol class="steps">
         <li>Open the Shortcuts app and tap <b>+</b> in the top right.</li>
-        <li>Add <b>Get Clipboard</b>.</li>
-        <li>Add <b>Copy to Clipboard</b> (yes, again) — this just keeps the same text on the clipboard so Clip can read it itself.</li>
-        <li>Add <b>Open URLs</b>, set to the fixed address below (no text appended — the URL never changes, so there's nothing for iOS to truncate).
+        <li>Add <b>Open URLs</b> and set it to the fixed address below. Nothing is added to it — the text stays on the clipboard, so there is nothing for iOS to cut off.
           <div class="url-box"><code id="guide-url">…</code></div>
           <button type="button" class="btn btn-ghost btn-sm" id="btn-copy-url2">Copy address</button>
         </li>
@@ -293,11 +313,21 @@
         <li><b>Control Center</b> — Settings → Control Center → add Shortcuts</li>
       </ul>
 
+      <h3 class="sec-head">3 · Using it</h3>
+      <ol class="steps">
+        <li>Copy some text in any app.</li>
+        <li>Run <b>Add to Clip</b>. Clip opens in Safari with a Paste sheet.</li>
+        <li>Tap <b>Paste from clipboard</b>, then tap <b>Paste</b> on the small bubble iOS shows. Saved.</li>
+      </ol>
+
       <h3 class="sec-head">Good to know</h3>
       <ul class="steps">
-        <li>This recipe reads the clipboard directly inside Clip, so it has no length limit — long emails and articles come through intact.</li>
-        <li>An older recipe built with <b>URL Encode</b> + <b>Open URLs</b> (text pasted into the URL itself) still works, but iOS caps how long a URL it will open — long text gets cut off before it ever reaches Clip, sometimes mid-character. If a Shortcut you built before September 2026 does this, rebuild it using the steps above.</li>
-        <li>Running the Shortcut opens Clip briefly, then saves. You can switch straight back.</li>
+        <li><b>Why two taps?</b> iOS never lets a web page read your clipboard by itself. The read has to follow a tap, and iOS then asks you to confirm with its own <b>Paste</b> bubble. Clip cannot skip that step.</li>
+        <li>A Shortcut you already built with <b>Get Clipboard</b> + <b>Copy to Clipboard</b> + <b>Open URLs</b> keeps working as it is. The first two steps are no longer needed, but they do no harm.</li>
+        <li><b>Short text, no taps:</b> build <b>Get Clipboard</b> → <b>URL Encode</b> → <b>Open URLs</b>, set to this address followed by the encoded text.
+          <div class="url-box"><code id="guide-add-url">…</code></div>
+          It saves instantly, but very long URLs can get cut off on the way to Clip, so long text may arrive shortened (Clip warns you when it can tell).</li>
+        <li>The Shortcut opens Clip in Safari, not in the Home Screen app. Turn on Sync, or use <b>Import from the other mode</b> in Settings, to see those clips in the Home Screen app.</li>
       </ul>
     </div>
   </div>

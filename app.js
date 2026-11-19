@@ -17,7 +17,7 @@
 // ./sw.js — Clip loads as a plain script (no <script type="module">), so
 // this lives here instead of a separate version.js the way the ES-module
 // apps do it.
-const APP_BUILD = '2026.11.17-duocheck1';
+const APP_BUILD = '2026.11.19-shortcutpaste1';
 const CONFIG = {
   appName: 'Clip',
   fileBase: 'clip',
@@ -628,7 +628,13 @@ function refreshStorageLine() {
   el['storage-line'].classList.toggle('warn', persistStatusText !== 'Protected');
 }
 
-/* ── 8. clipboard ──────────────────────────────────────────────────────── */
+/* ── 8. clipboard ────────────────────────────────────────────────────────
+   A page may read the clipboard ONLY from inside a tap. WebKit (Safari, the
+   Home Screen app, every iOS browser) rejects navigator.clipboard.readText()
+   at once when it runs outside a user gesture — for example while the page is
+   loading — and even inside a tap iOS shows its own small "Paste" bubble that
+   the user has to accept. So readClipboard() must be called straight from a
+   click handler with nothing awaited before it, never from page load. ──── */
 
 async function readClipboard() {
   if (!navigator.clipboard || !navigator.clipboard.readText) throw new Error('unsupported');
@@ -663,13 +669,17 @@ function handleUrlIntake() {
   let params;
   try { params = new URLSearchParams(location.search); } catch (e) { return; }
 
-  // ?paste=1 → Shortcuts can "Copy to Clipboard" then "Open URL" with this
-  // short, fixed URL (no payload in the query string at all). The text
-  // travels through the system clipboard instead of the URL, so it never
-  // hits iOS's URL-length cap that truncates ?add= for long clips.
+  // ?paste=1 → a Shortcut opens Clip with this short, fixed URL (no payload
+  // in the query string at all) while the text sits on the system clipboard,
+  // so it never hits iOS's URL-length cap that truncates ?add= for long clips.
+  // The page cannot read the clipboard by itself at load — iOS requires a tap
+  // and then asks the user to confirm (see section 8) — so it opens a
+  // one-button Paste sheet instead. That button's tap is the user gesture.
+  // (Earlier builds called pasteFromClipboard() right here, which always
+  // failed with "Could not read the clipboard" when started from a Shortcut.)
   if (params.get('paste') === '1') {
     try { history.replaceState({}, '', location.pathname + location.hash); } catch (e) { /* ignore */ }
-    pasteFromClipboard();
+    openPasteSheet();
     return;
   }
 
@@ -704,6 +714,7 @@ function cache() {
     'search', 'btn-clear-search',
     'panel-clips',
     'btn-paste', 'btn-write',
+    'sheet-paste', 'btn-paste-go', 'btn-paste-write', 'paste-status',
     'group-clips-pinned', 'list-clips-pinned', 'count-clips-pinned',
     'group-clips-recent', 'list-clips-recent',
     'empty-clips', 'empty-clips-search',
@@ -711,7 +722,7 @@ function cache() {
     'sheet-view', 'view-text', 'btn-view-copy',
     'sheet-settings', 'sheet-guide', 'sheet-menu', 'menu-preview', 'menu-list',
     'modal-confirm', 'confirm-title', 'confirm-desc', 'btn-confirm-yes', 'btn-confirm-no',
-    'toast-wrap', 'app-url', 'guide-url', 'btn-copy-url', 'btn-copy-url2', 'btn-open-guide',
+    'toast-wrap', 'app-url', 'guide-url', 'guide-add-url', 'btn-copy-url', 'btn-copy-url2', 'btn-open-guide',
     'btn-fontstep-reset', 'retention-group', 'btn-clear-expired', 'cleanup-line', 'set-merge',
     'btn-export-json', 'btn-import-json', 'btn-export-csv', 'file-import', 'btn-wipe',
     'mode-line', 'btn-pull-other', 'pull-other-hint', 'storage-line', 'backup-line', 'app-version-note',
@@ -968,19 +979,62 @@ function saveEditor() {
 
 /* ── 15. Clips: paste / card menu ────────────────────────────────────────── */
 
-async function pasteFromClipboard() {
+const PASTE_NOTE = 'iOS asks you to confirm before a web page can read your clipboard.';
+let pasteSeq = 0;
+
+function setPasteNote(text, warn) {
+  el['paste-status'].textContent = text;
+  el['paste-status'].classList.toggle('warn', !!warn);
+}
+
+/** The Shortcut's landing sheet (?paste=1): one button whose tap is the gesture iOS needs. */
+function openPasteSheet() {
+  setPasteNote(PASTE_NOTE, false);
+  openSheet(el['sheet-paste']);
+  // Mac keyboard: put focus on the main button so Enter/Space (a real key press) works at once.
+  // Skipped on iPhone/iPad, where a programmatic focus would only draw a ring.
+  if (!/iPhone|iPad|iPod/.test(navigator.userAgent)) setTimeout(() => el['btn-paste-go'].focus(), 60);
+}
+
+/**
+ * Reads the clipboard and saves it as a clip. Call it only from a tap handler
+ * (see section 8): readClipboard() runs synchronously at the top, so it is
+ * still inside the tap's user gesture.
+ * @param {boolean} fromSheet  true when the tap was on the Paste sheet's button —
+ *   a failure then stays on the sheet so the user can simply tap again; from
+ *   the main button a failure falls back to the Write editor instead.
+ */
+async function pasteFromClipboard(fromSheet) {
+  const seq = ++pasteSeq;
+  if (fromSheet) setPasteNote(PASTE_NOTE, false);
+
+  let text;
   try {
-    const text = await readClipboard();
-    if (!text || text.trim() === '') { toast('Clipboard is empty.', 'warn'); return; }
-    const res = addItem('clip', text, {});
-    if (!res) return;
-    render();
-    flashCard(res.item.id);
-    afterAddToast(res, 'clip');
+    text = await readClipboard();
   } catch (e) {
-    toast('Could not read the clipboard. Paste it below instead.', 'warn', 4000);
-    openEditor('clip', null);
+    // Dismissed iOS's Paste bubble, or reading is unsupported. A newer tap that
+    // already started waiting on its own bubble owns the message instead.
+    if (seq !== pasteSeq) return;
+    if (fromSheet) {
+      setPasteNote('Nothing was pasted. Tap the button again, then tap Paste on the bubble.', true);
+    } else {
+      toast('Could not read the clipboard. Paste it below instead.', 'warn', 4000);
+      openEditor('clip', null);
+    }
+    return;
   }
+
+  if (!text || text.trim() === '') {
+    if (fromSheet) setPasteNote('The clipboard has no text. Copy some text first, then tap again.', true);
+    else toast('Clipboard is empty.', 'warn');
+    return;
+  }
+  const res = addItem('clip', text, {});
+  if (!res) return;
+  if (fromSheet && openSheetEl === el['sheet-paste']) closeSheet();
+  render();
+  flashCard(res.item.id);
+  afterAddToast(res, 'clip');
 }
 
 function openMenu(item) {
@@ -1081,6 +1135,7 @@ function refreshSettingsUI() {
   el['set-merge'].checked = state.settings.mergeDuplicates;
   el['app-url'].textContent = pasteShortcutUrl();
   el['guide-url'].textContent = pasteShortcutUrl();
+  el['guide-add-url'].textContent = appUrl();
   el['app-version-note'].textContent = `Clip · App version ${APP_BUILD} · Data stays on this device unless Sync is on`;
   refreshCleanupLine();
 
@@ -1835,8 +1890,12 @@ function bind() {
   });
 
   // Clips
-  el['btn-paste'].addEventListener('click', pasteFromClipboard);
+  el['btn-paste'].addEventListener('click', () => pasteFromClipboard(false));
   el['btn-write'].addEventListener('click', () => openEditor('clip', null));
+
+  // Paste sheet (opened by the Shortcut's ?paste=1 address)
+  el['btn-paste-go'].addEventListener('click', () => pasteFromClipboard(true));
+  el['btn-paste-write'].addEventListener('click', () => { closeSheet(); openEditor('clip', null); });
 
   // Editor sheet
   el['btn-save-edit'].addEventListener('click', saveEditor);

@@ -21,7 +21,7 @@ test('wide/unfolded screens: two-column cards from the tablet-portrait tier, cen
 
 test('the build stamp in app.js matches the service worker cache name', () => {
   const stamp = read('app.js').match(/const APP_BUILD = '([^']+)'/)[1];
-  assert.equal(stamp, '2026.11.17-duocheck1');
+  assert.equal(stamp, '2026.11.19-shortcutpaste1');
   assert.equal(read('sw.js').match(/const CACHE = 'clip-v1-([^']+)'/)[1], stamp);
 });
 
