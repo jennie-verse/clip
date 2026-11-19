@@ -227,4 +227,70 @@ test('every element id app.js looks up exists in index.html, and the Paste sheet
   assert.ok(!/params\.get\('paste'\) === '1'\) \{[\s\S]{0,600}?pasteFromClipboard\(/.test(js), '?paste=1 must not read the clipboard itself');
   assert.ok(js.includes("el['btn-paste'].addEventListener('click', () => pasteFromClipboard(false))"), 'main Paste button wiring');
   assert.ok(js.includes("el['btn-paste-go'].addEventListener('click', () => pasteFromClipboard(true))"), 'Paste sheet button wiring');
+
+  // Two addresses, each with its own Copy button: the automatic one (?add=) and the long-text one (?paste=1).
+  for (const id of ['app-url', 'app-paste-url', 'guide-url', 'guide-paste-url', 'btn-copy-url', 'btn-copy-url2', 'btn-copy-paste-url', 'btn-copy-paste-url2']) {
+    assert.ok(ids.includes(id), id + ' must be looked up by cache()');
+  }
+  assert.ok(js.includes("el['btn-copy-url'].addEventListener('click', copyAddress(appUrl))"), 'Settings copy button copies the automatic address');
+  assert.ok(js.includes("el['btn-copy-url2'].addEventListener('click', copyAddress(appUrl))"), 'guide copy button copies the automatic address');
+  assert.ok(js.includes("el['btn-copy-paste-url'].addEventListener('click', copyAddress(pasteShortcutUrl))"), 'Settings paste-address copy button');
+  assert.ok(js.includes("el['btn-copy-paste-url2'].addEventListener('click', copyAddress(pasteShortcutUrl))"), 'guide paste-address copy button');
+  assert.ok(js.includes("el['app-url'].textContent = appUrl()") && js.includes("el['guide-url'].textContent = appUrl()"), 'the main addresses shown are the automatic ?add= one');
+  // The automatic recipe comes first on screen; the two-tap route is the long-text fallback after it.
+  assert.ok(html.indexOf('id="app-url"') < html.indexOf('id="app-paste-url"'), 'Settings: automatic address before the long-text address');
+  assert.ok(html.indexOf('id="guide-url"') < html.indexOf('id="guide-paste-url"'), 'guide: automatic recipe before the long-text route');
+});
+
+// ── The automatic route (?add=): what "tap the Shortcut and it is saved" depends on ───────────────────
+// A Shortcut builds   <clip address>?add=<URL Encode of the clipboard>   (Get Clipboard -> URL Encode -> Text -> Open URLs).
+const encode = text => encodeURIComponent(text);   // the Shortcuts "URL Encode" action percent-encodes every reserved character
+const korean = n => '가나다라마바사아자차카타파하'.repeat(Math.ceil(n / 14)).slice(0, n);
+
+for (const [name, text] of [
+  ['Korean, newlines, reserved characters, HTML and emoji', '서울특별시 강남구 테헤란로 123, 4층\n둘째 줄\r\nTom & Jerry = 100% + a?b#c /p [x] \'q\' "d" <b>x</b> 😀 👍🏽'],
+  ['a link with its own query string', 'https://example.com/a?b=c&d=e#frag'],
+  ['1,000 Korean characters', korean(1000)],
+]) {
+  test('?add= saves by itself, with no tap and no clipboard read: ' + name, T, () => {
+    let reads = 0;
+    const h = loadClip({ search: '?add=' + encode(text), readText: () => { reads += 1; return Promise.resolve('never'); } });
+    h.run('handleUrlIntake()');
+    assert.deepEqual(h.texts(), [text.replace(/\r\n/g, '\n')]);
+    assert.equal(reads, 0, 'the automatic route must not touch the clipboard');
+    assert.equal(h.sheetOpen(), false, 'no Paste sheet');
+    assert.equal(h.editorCalls.length, 0, 'no Write sheet');
+    assert.deepEqual(h.replaced, ['/clip/'], 'the query is removed from the address bar');
+    assert.deepEqual(h.toasts.map(t => t.message), ['Saved.']);
+  });
+}
+
+test('?add= with pin=1 and label= applies both; an empty ?add= saves nothing and says so', T, () => {
+  const h = loadClip({ search: '?add=' + encode('Office desk') + '&pin=1&label=' + encode('주소 label') });
+  h.run('handleUrlIntake()');
+  assert.deepEqual(Array.from(h.run('state.items.map(i => [i.text, i.pinned, i.label])'), row => Array.from(row)), [['Office desk', true, '주소 label']]);   // Array.from: vm-realm arrays
+
+  const empty = loadClip({ search: '?add=' });
+  empty.run('handleUrlIntake()');
+  assert.deepEqual(empty.texts(), []);
+  assert.deepEqual(empty.toasts, [{ message: 'Nothing to add — the clip was empty.', kind: 'warn' }]);
+});
+
+test('?add= keeps 20,000 characters of a longer text and says so; a cut-through-the-encoding address is flagged', T, () => {
+  const big = loadClip({ search: '?add=' + encode(korean(25000)) });
+  big.run('handleUrlIntake()');
+  assert.equal(big.texts()[0].length, 20000);
+  assert.ok(big.toasts.some(t => /saved the first 20,000 characters/.test(t.message)), 'long text is reported');
+
+  const full = encode('가나');                                 // %EA%B0%80%EB%82%98
+  const cut = loadClip({ search: '?add=' + full.slice(0, full.length - 10) });   // ends in a dangling %8
+  cut.run('handleUrlIntake()');
+  assert.equal(cut.texts().length, 1, 'what arrived is still saved');
+  assert.ok(cut.toasts.some(t => /cut short/.test(t.message) && /Paste from clipboard/.test(t.message)), 'and flagged, pointing to the long-text route');
+});
+
+test('the two addresses: the automatic one ends in ?add=, the long-text one in ?paste=1', T, () => {
+  const h = loadClip();
+  assert.equal(h.run('appUrl()'), 'https://example.test/clip/?add=');
+  assert.equal(h.run('pasteShortcutUrl()'), 'https://example.test/clip/?paste=1');
 });

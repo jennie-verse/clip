@@ -17,7 +17,7 @@
 // ./sw.js — Clip loads as a plain script (no <script type="module">), so
 // this lives here instead of a separate version.js the way the ES-module
 // apps do it.
-const APP_BUILD = '2026.11.19-shortcutpaste2';
+const APP_BUILD = '2026.11.19-shortcutauto1';
 const CONFIG = {
   appName: 'Clip',
   fileBase: 'clip',
@@ -649,14 +649,18 @@ function writeClipboard(text) {
    ?add=   → Clips. ─────────────────────────────────────────────────────── */
 
 // The Shortcut hands text over as a raw ?add= URL-encoded query param, built
-// by iOS Shortcuts' own "URL Encode" + "Open URLs" actions — not by this
-// app. iOS has a real (and inconsistent across versions) cap on how long a
-// URL it will actually open, and when it truncates one it cuts through the
-// percent-encoding itself, leaving a dangling "%" or "%A" at the very end.
-// That is detectable even though the *original* length never was:
+// by iOS Shortcuts' own "URL Encode" + "Open URLs" actions — not by this app.
+// This is the automatic route: no tap in Clip, no clipboard read, so it works
+// the same in every build. Length: the GitHub Pages server answers a request
+// URL of 8,192+ bytes with HTTP 414 (measured 2026-11-19), which only matters
+// when the Service Worker is not already serving Clip (first visit, cleared
+// site data); an installed Service Worker answers the navigation from its
+// cache. Nothing in Apple's docs limits the Open URLs action itself. If an
+// address is ever cut through the percent-encoding, it ends in a dangling "%"
+// or "%A". That is detectable even though the *original* length never was:
 // URLSearchParams silently decodes a broken tail rather than throwing, so a
-// truncated Shortcut clip would otherwise save with no sign anything was cut
-// short — indistinguishable from a normal short clip. Flag it instead.
+// cut-short clip would otherwise save with no sign anything was wrong —
+// indistinguishable from a normal short clip. Flag it instead.
 function rawQueryParam(search, key) {
   const match = new RegExp('[?&]' + key + '=([^&]*)').exec(search);
   return match ? match[1] : null;
@@ -669,9 +673,9 @@ function handleUrlIntake() {
   let params;
   try { params = new URLSearchParams(location.search); } catch (e) { return; }
 
-  // ?paste=1 → a Shortcut opens Clip with this short, fixed URL (no payload
-  // in the query string at all) while the text sits on the system clipboard,
-  // so it never hits iOS's URL-length cap that truncates ?add= for long clips.
+  // ?paste=1 → the long-text route: a Shortcut opens Clip with this short,
+  // fixed URL (no payload in the query string at all) while the text sits on
+  // the system clipboard, so the address stays short however long the text is.
   // The page cannot read the clipboard by itself at load — iOS requires a tap
   // and then asks the user to confirm (see section 8) — so it opens a
   // one-button Paste sheet instead. That button's tap is the user gesture.
@@ -701,7 +705,7 @@ function handleUrlIntake() {
   flashCard(res.item.id);
   afterAddToast(res, 'clip');
   if (looksTruncatedByUrlLimit(rawAdd)) {
-    toast('This clip may have been cut short by iOS’s URL length limit — for long text, open Clip and use Paste from clipboard instead.', 'warn', 7000);
+    toast('This clip may have been cut short on its way to Clip — for long text, copy it again and tap Paste from clipboard.', 'warn', 7000);
   }
 }
 
@@ -722,7 +726,7 @@ function cache() {
     'sheet-view', 'view-text', 'btn-view-copy',
     'sheet-settings', 'sheet-guide', 'sheet-menu', 'menu-preview', 'menu-list',
     'modal-confirm', 'confirm-title', 'confirm-desc', 'btn-confirm-yes', 'btn-confirm-no',
-    'toast-wrap', 'app-url', 'guide-url', 'guide-add-url', 'btn-copy-url', 'btn-copy-url2', 'btn-open-guide',
+    'toast-wrap', 'app-url', 'app-paste-url', 'guide-url', 'guide-paste-url', 'btn-copy-url', 'btn-copy-paste-url', 'btn-copy-url2', 'btn-copy-paste-url2', 'btn-open-guide',
     'btn-fontstep-reset', 'retention-group', 'btn-clear-expired', 'cleanup-line', 'set-merge',
     'btn-export-json', 'btn-import-json', 'btn-export-csv', 'file-import', 'btn-wipe',
     'mode-line', 'btn-pull-other', 'pull-other-hint', 'storage-line', 'backup-line', 'app-version-note',
@@ -1133,9 +1137,10 @@ function refreshSettingsUI() {
   applyRetentionUI();
   if (!el['set-merge']) return;
   el['set-merge'].checked = state.settings.mergeDuplicates;
-  el['app-url'].textContent = pasteShortcutUrl();
-  el['guide-url'].textContent = pasteShortcutUrl();
-  el['guide-add-url'].textContent = appUrl();
+  el['app-url'].textContent = appUrl();                       // automatic: ?add=
+  el['app-paste-url'].textContent = pasteShortcutUrl();       // long text: ?paste=1 (two taps)
+  el['guide-url'].textContent = appUrl();
+  el['guide-paste-url'].textContent = pasteShortcutUrl();
   el['app-version-note'].textContent = `Clip · App version ${APP_BUILD} · Data stays on this device unless Sync is on`;
   refreshCleanupLine();
 
@@ -1986,11 +1991,13 @@ function bind() {
 
   el['set-merge'].addEventListener('change', () => { const commit = beginStateChange(); state.settings.mergeDuplicates = el['set-merge'].checked; if (!commit()) refreshSettingsUI(); });
 
-  const copyUrl = () => writeClipboard(pasteShortcutUrl())
+  const copyAddress = (getUrl) => () => writeClipboard(getUrl())
     .then(() => toast('Address copied.', 'ok'))
     .catch(() => toast('Could not copy — press and hold the address instead.', 'warn', 4000));
-  el['btn-copy-url'].addEventListener('click', copyUrl);
-  el['btn-copy-url2'].addEventListener('click', copyUrl);
+  el['btn-copy-url'].addEventListener('click', copyAddress(appUrl));                 // automatic address (?add=)
+  el['btn-copy-url2'].addEventListener('click', copyAddress(appUrl));
+  el['btn-copy-paste-url'].addEventListener('click', copyAddress(pasteShortcutUrl));  // long-text address (?paste=1)
+  el['btn-copy-paste-url2'].addEventListener('click', copyAddress(pasteShortcutUrl));
   el['btn-open-guide'].addEventListener('click', () => { closeSheet(); refreshSettingsUI(); openSheet(el['sheet-guide']); });
 
   el['btn-export-json'].addEventListener('click', exportJson);

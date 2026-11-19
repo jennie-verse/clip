@@ -7,7 +7,7 @@
      already installed this app.
    ========================================================================== */
 
-const CACHE = 'clip-v1-2026.11.19-shortcutpaste2';
+const CACHE = 'clip-v1-2026.11.19-shortcutauto1';
 
 /* Caches with this prefix are never deleted here — they're the mirror
    used to carry items between the Home Screen app and Safari (see

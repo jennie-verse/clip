@@ -314,6 +314,7 @@ body {
 
 .sec-desc { margin: 0 0 10px; font-size: .8333rem; color: var(--text-muted); line-height: 1.6; }
 .sec-desc b { color: var(--text); font-weight: 700; }
+.sec-desc.spaced { margin-top: 16px; }
 
 .seg {
   display: flex; gap: 6px;
